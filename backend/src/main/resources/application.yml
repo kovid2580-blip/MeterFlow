@@ -1,0 +1,22 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:${MONGO_URL:mongodb://localhost:27017/meterflow}}
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+app:
+  cors:
+    allowed-origins: ${FRONTEND_URL:http://localhost:5173,http://127.0.0.1:5174,http://localhost:3000}
+  jwt:
+    secret: ${JWT_SECRET:meterflow-development-secret-key-change-me-please}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  razorpay:
+    key_id: ${RAZORPAY_KEY_ID:}
+    key_secret: ${RAZORPAY_KEY_SECRET:}
+    pro_plan_id: ${RAZORPAY_PRO_PLAN_ID:}

@@ -1,4 +1,5 @@
-const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:8080" : "");
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
+const baseUrl = configuredBaseUrl || (import.meta.env.DEV ? "http://localhost:8080" : "");
 
 export function apiClient(token) {
   async function request(path, options = {}) {

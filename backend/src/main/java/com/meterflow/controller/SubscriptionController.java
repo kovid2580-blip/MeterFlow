@@ -4,49 +4,56 @@ import com.meterflow.dto.SubscriptionDtos.*;
 import com.meterflow.entity.PlanType;
 import com.meterflow.repository.UserRepository;
 import com.meterflow.security.PrincipalUser;
-import com.meterflow.service.RazorpayService;
-import com.razorpay.RazorpayException;
+import com.meterflow.service.PhonePeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/subscriptions")
 @RequiredArgsConstructor
 public class SubscriptionController {
 
-    private final RazorpayService razorpayService;
+    private final PhonePeService phonePeService;
     private final UserRepository userRepository;
 
     @PostMapping("/create")
-    public ResponseEntity<SubscriptionResponse> createSubscription(@RequestBody CreateSubscriptionRequest request,
-                                                                   @AuthenticationPrincipal PrincipalUser principal) {
+    public ResponseEntity<?> createSubscription(@RequestBody CreateSubscriptionRequest request,
+                                                @AuthenticationPrincipal PrincipalUser principal) {
         try {
             PlanType planType = request.planType() == null ? PlanType.PRO : request.planType();
-            String subscriptionId = razorpayService.createSubscription(planType, 12);
-            return ResponseEntity.ok(new SubscriptionResponse(subscriptionId, planType.name()));
-        } catch (RazorpayException | IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
+            SubscriptionResponse response = phonePeService.createProPayment(principal.user(), planType);
+            var user = principal.user();
+            user.setPhonepeMerchantOrderId(response.merchantOrderId());
+            user.setSubscriptionStatus("PAYMENT_PENDING");
+            userRepository.save(user);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
     @PostMapping("/verify")
     public ResponseEntity<VerifySubscriptionResponse> verifySubscription(@RequestBody VerifySubscriptionRequest request,
                                                                          @AuthenticationPrincipal PrincipalUser principal) {
-        boolean isValid = razorpayService.verifySignature(request.paymentId(), request.subscriptionId(), request.signature());
-        if (isValid) {
-            var user = principal.user();
-            user.setPlanType(PlanType.PRO);
-            user.setRazorpaySubscriptionId(request.subscriptionId());
-            user.setSubscriptionStatus("ACTIVE");
-            user.setSubscriptionVerifiedAt(Instant.now());
-            userRepository.save(user);
-            return ResponseEntity.ok(new VerifySubscriptionResponse(true, "Subscription verified successfully"));
-        } else {
-            return ResponseEntity.badRequest().body(new VerifySubscriptionResponse(false, "Invalid signature"));
+        try {
+            String state = phonePeService.orderState(request.merchantOrderId());
+            if ("COMPLETED".equalsIgnoreCase(state)) {
+                var user = principal.user();
+                user.setPlanType(PlanType.PRO);
+                user.setPhonepeMerchantOrderId(request.merchantOrderId());
+                user.setSubscriptionStatus("ACTIVE");
+                user.setSubscriptionVerifiedAt(Instant.now());
+                userRepository.save(user);
+                return ResponseEntity.ok(new VerifySubscriptionResponse(true, "PhonePe payment verified successfully", state));
+            }
+            return ResponseEntity.badRequest().body(new VerifySubscriptionResponse(false, "PhonePe payment is " + state, state));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(new VerifySubscriptionResponse(false, e.getMessage(), "UNKNOWN"));
         }
     }
 }

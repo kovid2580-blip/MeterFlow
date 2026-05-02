@@ -6,7 +6,7 @@ MeterFlow is a usage-based API billing platform. Developers can register, create
 
 - Backend: Spring Boot, Spring Security, JWT, Spring Data MongoDB, Redis
 - Frontend: React, Tailwind CSS, Recharts
-- Payments: Razorpay subscriptions on top of billing records
+- Payments: PhonePe Standard Checkout for PRO plan upgrades
 - Deployment: Render for backend, Vercel for frontend, Render-hosted MongoDB instead of MongoDB Atlas
 
 ## Backend

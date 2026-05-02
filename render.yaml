@@ -9,12 +9,19 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
-        value: https://your-vercel-app.vercel.app
+        value: https://frontend-sandy-eta-49.vercel.app
       - key: MONGO_URL
         sync: false
-      - key: RAZORPAY_KEY_ID
+      - key: PHONEPE_ENVIRONMENT
+        value: SANDBOX
+      - key: PHONEPE_CLIENT_ID
         sync: false
-      - key: RAZORPAY_KEY_SECRET
+      - key: PHONEPE_CLIENT_VERSION
         sync: false
-      - key: RAZORPAY_PRO_PLAN_ID
+      - key: PHONEPE_CLIENT_SECRET
+        sync: false
+      - key: PHONEPE_REDIRECT_URL
+        value: https://frontend-sandy-eta-49.vercel.app
+      - key: PHONEPE_PRO_AMOUNT_PAISE
+        value: "99900"
         sync: false

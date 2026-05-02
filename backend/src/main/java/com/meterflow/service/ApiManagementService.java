@@ -55,7 +55,8 @@ public class ApiManagementService {
     }
 
     public List<ApiKeyResponse> myKeys(PrincipalUser principal) {
-        return apiKeyRepository.findByApiUserId(principal.user().getId()).stream()
+        var apis = apiProjectRepository.findByUser(principal.user());
+        return apiKeyRepository.findByApiIn(apis).stream()
                 .map(this::toKeyResponse)
                 .toList();
     }

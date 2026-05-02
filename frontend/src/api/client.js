@@ -1,7 +1,11 @@
-const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://localhost:8080" : "");
 
 export function apiClient(token) {
   async function request(path, options = {}) {
+    if (!baseUrl) {
+      throw new Error("Backend URL is not configured");
+    }
+
     const response = await fetch(`${baseUrl}${path}`, {
       ...options,
       headers: {

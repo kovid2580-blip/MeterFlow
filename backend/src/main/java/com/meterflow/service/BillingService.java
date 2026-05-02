@@ -4,6 +4,8 @@ import com.meterflow.dto.BillingDtos.BillingResponse;
 import com.meterflow.entity.Billing;
 import com.meterflow.entity.PaymentStatus;
 import com.meterflow.entity.User;
+import com.meterflow.repository.ApiKeyRepository;
+import com.meterflow.repository.ApiProjectRepository;
 import com.meterflow.repository.BillingRepository;
 import com.meterflow.repository.UsageLogRepository;
 import com.meterflow.repository.UserRepository;
@@ -27,6 +29,8 @@ public class BillingService {
     private final BillingRepository billingRepository;
     private final UsageLogRepository usageLogRepository;
     private final UserRepository userRepository;
+    private final ApiKeyRepository apiKeyRepository;
+    private final ApiProjectRepository apiProjectRepository;
 
     public List<BillingResponse> myBills(PrincipalUser principal) {
         return billingRepository.findByUserOrderByMonthDesc(principal.user()).stream().map(this::toResponse).toList();
@@ -44,7 +48,11 @@ public class BillingService {
             if (billingRepository.findByUserAndMonth(user, month.toString()).isPresent()) {
                 continue;
             }
-            long total = usageLogRepository.countForUserBetween(user.getId(), start, end);
+            var apis = apiProjectRepository.findByUser(user);
+            var apiKeys = apiKeyRepository.findByApiIn(apis).stream()
+                    .map(apiKey -> apiKey.getKeyValue())
+                    .toList();
+            long total = apiKeys.isEmpty() ? 0 : usageLogRepository.countByApiKeyInAndTimestampBetween(apiKeys, start, end);
             long billable = Math.max(0, total - FREE_REQUESTS);
             BigDecimal units = BigDecimal.valueOf(billable).divide(BigDecimal.valueOf(100), 0, RoundingMode.CEILING);
             Billing bill = Billing.builder()

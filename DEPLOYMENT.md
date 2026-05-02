@@ -7,7 +7,7 @@ Use Vercel for the frontend and Render for the backend. To avoid MongoDB Atlas c
 - Backend: Render Web Service
 - Database: Render MongoDB Private Service with persistent disk
 - Frontend: Vercel
-- Payments: Razorpay subscription checkout
+- Payments: PhonePe Standard Checkout for PRO plan upgrades
 - Optional cache/rate limit: Render Key Value or disable Redis for early demos
 
 Render supports MongoDB as a private Docker service backed by a persistent disk. This is cheaper than a managed Atlas production cluster, but it is self-managed: set up `mongodump` backups before using it for real customers.
@@ -40,9 +40,12 @@ MONGO_URL=mongodb://mongo-xyz:27017/meterflow
 MONGO_URL=mongodb://<render-mongo-private-host>:27017/meterflow
 JWT_SECRET=<long-random-secret>
 FRONTEND_URL=https://<your-vercel-app>.vercel.app
-RAZORPAY_KEY_ID=<razorpay-key-id>
-RAZORPAY_KEY_SECRET=<razorpay-key-secret>
-RAZORPAY_PRO_PLAN_ID=<razorpay-plan-id-for-pro-monthly>
+PHONEPE_ENVIRONMENT=SANDBOX
+PHONEPE_CLIENT_ID=<phonepe-client-id>
+PHONEPE_CLIENT_VERSION=<phonepe-client-version>
+PHONEPE_CLIENT_SECRET=<phonepe-client-secret>
+PHONEPE_REDIRECT_URL=https://<your-vercel-app>.vercel.app
+PHONEPE_PRO_AMOUNT_PAISE=99900
 ```
 
 You can also use the included `render.yaml` blueprint for the backend, then fill `MONGO_URL` and payment secrets in the Render dashboard.
@@ -53,34 +56,30 @@ You can also use the included `render.yaml` blueprint for the backend, then fill
 2. Set the root directory to `frontend`.
 3. Build command: `npm run build`
 4. Output directory: `dist`
-5. Add these variables:
+5. Add this variable:
 
 ```bash
 VITE_API_URL=https://<your-backend>.onrender.com
-VITE_RAZORPAY_KEY_ID=<razorpay-key-id>
 ```
 
 After Vercel gives you the final URL, add that URL to the backend `FRONTEND_URL` variable and redeploy the backend.
 
-## Razorpay Setup
+## PhonePe Setup
 
-1. In Razorpay Dashboard, create a subscription plan for MeterFlow PRO, for example monthly INR 999.
-2. Copy the generated plan id, such as `plan_xxxxx`.
+1. In PhonePe Business Dashboard, open Developer Settings and copy your Standard Checkout credentials.
+2. Use `SANDBOX` while testing with UAT credentials and switch to `PRODUCTION` only after PhonePe gives you live credentials.
 3. In Render backend env vars, set:
 
 ```bash
-RAZORPAY_KEY_ID=<key_id>
-RAZORPAY_KEY_SECRET=<key_secret>
-RAZORPAY_PRO_PLAN_ID=<plan_xxxxx>
+PHONEPE_ENVIRONMENT=SANDBOX
+PHONEPE_CLIENT_ID=<client_id>
+PHONEPE_CLIENT_VERSION=<client_version>
+PHONEPE_CLIENT_SECRET=<client_secret>
+PHONEPE_REDIRECT_URL=https://<your-vercel-app>.vercel.app
+PHONEPE_PRO_AMOUNT_PAISE=99900
 ```
 
-4. In Vercel frontend env vars, set:
-
-```bash
-VITE_RAZORPAY_KEY_ID=<key_id>
-```
-
-The frontend opens Razorpay Checkout with the subscription id created by the backend. After payment, the backend verifies the Razorpay signature and marks the user as `PRO`.
+The frontend opens PhonePe Checkout with the redirect URL created by the backend. After checkout concludes, the backend checks PhonePe order status and marks the user as `PRO` only when the order state is `COMPLETED`.
 
 ## Local Smoke Test
 

@@ -194,7 +194,7 @@ function App() {
         {activeView === "apis" && <Apis apis={apis} apiForm={apiForm} setApiForm={setApiForm} createApi={createApi} generateKey={generateKey} />}
         {activeView === "keys" && <Keys keys={keys} revokeKey={revokeKey} />}
         {activeView === "usage" && <Usage />}
-        {activeView === "billing" && <Billing bills={bills} client={client} session={session} />}
+        {activeView === "billing" && <Billing bills={bills} client={client} session={session} setSession={setSession} />}
         {activeView === "settings" && <Settings session={session} />}
       </main>
     </div>
@@ -250,8 +250,14 @@ function Keys({ keys, revokeKey }) {
       <div className="table-list">
         {keys.map((key) => (
           <div className="row" key={key.id}>
-            <div><strong>{key.planType}</strong><span>{key.keyValue}</span></div>
-            <button className="danger" onClick={() => revokeKey(key.id)}><Trash2 size={16} /> Revoke</button>
+            <div>
+              <strong>{key.planType}</strong>
+              <span>{key.keyValue}</span>
+              <span className={`status ${key.status === "REVOKED" ? "revoked" : "active"}`}>{key.status}</span>
+            </div>
+            <button className="danger" onClick={() => revokeKey(key.id)} disabled={key.status === "REVOKED"}>
+              <Trash2 size={16} /> {key.status === "REVOKED" ? "Revoked" : "Revoke"}
+            </button>
           </div>
         ))}
         {!keys.length && <p className="muted">Generate keys from the My APIs page.</p>}
@@ -264,60 +270,49 @@ function Usage() {
   return <section className="content-grid"><Panel title="Monthly Usage"><UsageArea /></Panel><Panel title="Status Mix"><CodeBars /></Panel></section>;
 }
 
-function Billing({ bills, client, session }) {
+function Billing({ bills, client, session, setSession }) {
   const [subscribing, setSubscribing] = useState(false);
 
   const handleSubscribe = async (planType) => {
     try {
       setSubscribing(true);
-      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-      if (!razorpayKey) {
-        throw new Error("Razorpay public key is not configured");
-      }
-      if (!window.Razorpay) {
-        throw new Error("Razorpay checkout failed to load");
-      }
+      const data = await client.post("/api/subscriptions/create", { planType });
 
-      const data = await client.post("/subscriptions/create", { planType });
-      
-      const options = {
-        key: razorpayKey,
-        subscription_id: data.subscriptionId,
-        name: "MeterFlow PRO",
-        description: "Unlimited API requests",
-        handler: async function (response) {
-          try {
-            const verifyData = await client.post("/subscriptions/verify", {
-              paymentId: response.razorpay_payment_id,
-              subscriptionId: response.razorpay_subscription_id,
-              signature: response.razorpay_signature
-            });
-            if (verifyData.success) {
-              const updatedSession = { ...session, planType: "PRO" };
-              setSession(updatedSession);
-              localStorage.setItem("meterflow.session", JSON.stringify(updatedSession));
-              alert("Subscription successful. You are now on the PRO plan.");
-            } else {
-              alert("Verification Failed");
-            }
-          } catch(err) {
-            alert(err.message);
-          }
-        },
-        prefill: {
-          name: session?.name || "",
-          email: session?.email || ""
-        },
-        theme: {
-          color: "#2fbf8f"
+      const verifyPayment = async () => {
+        const verifyData = await client.post("/api/subscriptions/verify", {
+          merchantOrderId: data.merchantOrderId
+        });
+        if (verifyData.success) {
+          const updatedSession = { ...session, planType: "PRO" };
+          setSession(updatedSession);
+          localStorage.setItem("meterflow.session", JSON.stringify(updatedSession));
+          alert("Payment successful. You are now on the PRO plan.");
+        } else {
+          alert(verifyData.message || "Payment was not completed");
         }
       };
-      
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function (response){
-        alert(response.error.description);
-      });
-      rzp.open();
+
+      if (window.PhonePeCheckout?.transact) {
+        window.PhonePeCheckout.transact({
+          tokenUrl: data.redirectUrl,
+          type: "IFRAME",
+          callback: async (response) => {
+            if (response === "USER_CANCEL") {
+              alert("PhonePe payment was cancelled.");
+              return;
+            }
+            if (response === "CONCLUDED") {
+              try {
+                await verifyPayment();
+              } catch (err) {
+                alert(err.message);
+              }
+            }
+          }
+        });
+      } else {
+        window.location.href = data.redirectUrl;
+      }
     } catch (err) {
       alert(err.message);
     } finally {
@@ -327,10 +322,10 @@ function Billing({ bills, client, session }) {
 
   return (
     <>
-      <Panel title="PRO Plan Subscription">
+      <Panel title="PRO Plan Payment">
         <p className="muted" style={{marginBottom: "1rem"}}>Upgrade to PRO for unlimited requests and advanced analytics.</p>
         <button className="primary" onClick={() => handleSubscribe("PRO")} disabled={subscribing}>
-          {subscribing ? "Processing..." : "Subscribe to PRO - ₹999/mo"}
+          {subscribing ? "Processing..." : "Pay with PhonePe - Rs 999"}
         </button>
       </Panel>
       <br/>

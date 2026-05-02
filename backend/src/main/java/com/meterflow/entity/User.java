@@ -33,7 +33,7 @@ public class User {
     @Builder.Default
     private PlanType planType = PlanType.FREE;
 
-    private String razorpaySubscriptionId;
+    private String phonepeMerchantOrderId;
 
     private String subscriptionStatus;
 
